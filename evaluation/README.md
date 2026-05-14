@@ -1,7 +1,8 @@
 # `evaluation/` — 模型评测 + SHAP 可解释性
 
-和 `analysis/`、`ml/` 平级的独立模块，**不依赖 `analysis/`**，只依赖 `ml/`
-（用它的 Pipeline 结构来抽特征名）。
+> 项目总入口：[`../README.md`](../README.md) · 相关模块：[`preprocessing/`](../preprocessing/README.md) · [`ml/`](../ml/README.md) · [`analysis/`](../analysis/README.md)
+
+和 `analysis/`、`ml/`、`preprocessing/` 平级的独立模块，**不依赖 `analysis/`**，只依赖 `ml/` 的 Pipeline 结构来抽特征名。
 
 ```
 evaluation/

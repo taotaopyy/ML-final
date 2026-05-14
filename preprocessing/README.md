@@ -1,5 +1,7 @@
 # `preprocessing/` — 数据预处理工具箱
 
+> 项目总入口：[`../README.md`](../README.md) · 相关模块：[`ml/`](../ml/README.md) · [`evaluation/`](../evaluation/README.md) · [`analysis/`](../analysis/README.md)
+
 和 `analysis/`、`ml/`、`evaluation/` 平级、互不依赖。`ml/data_utils.py` 里只内置了最小化的预处理（中位数填补 + 标准化 + One-Hot），如果需要更细致的清洗、不同的缩放/编码、KNN 插补、SMOTE 重采样、患者级切分等，用这个文件夹。
 
 ```

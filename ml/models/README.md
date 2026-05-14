@@ -1,131 +1,92 @@
 # `ml/models/`
 
-Every ML model used in this project lives in its own file here.
-Each module exposes a single `build(preprocessor)` function that returns a
-scikit-learn `Pipeline` of the form `preprocessor -> classifier`.
+每个模型一个独立文件，每个文件只暴露一个函数：
 
-This folder is **independent** of `analysis/logistic_regression.py` — that
-script is the statistical univariate → multivariable Logit pipeline and does
-not share any code with the ML models.
+```python
+def build(preprocessor) -> sklearn.Pipeline
+```
 
-| File | Classifier | Notes |
+返回的 `Pipeline` 形如 `preprocessor -> classifier`。所有模型共用 [`ml.data_utils.build_preprocessor`](../data_utils.py)（或 [`preprocessing.transformers`](../../preprocessing/README.md) 里的任意预设）构造的预处理器，所以模型之间的差异**只来自分类器本身**。
+
+整体使用方式（命令行 / Python API / CV / 调参 / 保存加载）见上一层的 [`ml/README.md`](../README.md)。本文件只列模型清单和"怎么加一个新模型"。
+
+---
+
+## 模型清单
+
+| 文件 | 分类器 | 备注 |
 |---|---|---|
-| `logistic.py` | `LogisticRegression` (L2) | Standard logistic regression baseline. |
-| `lasso.py` | `LogisticRegression` (L1) | LASSO — built-in feature selection. |
-| `random_forest.py` | `RandomForestClassifier` | 500 trees, balanced class weights. |
-| `extra_trees.py` | `ExtraTreesClassifier` | Random-threshold trees; lower variance than RF. |
-| `gradient_boosting.py` | `HistGradientBoostingClassifier` | sklearn-native histogram GBT. |
-| `lightgbm_model.py` | `LGBMClassifier` (LightGBM) | Fast leaf-wise GBT; usually strong on tabular data. |
-| `xgboost_model.py` | `XGBClassifier` (XGBoost) | `scale_pos_weight` set for the ~15% event rate. |
-| `catboost_model.py` | `CatBoostClassifier` (CatBoost) | `auto_class_weights="Balanced"`, quiet mode. |
-| `svm.py` | `SVC` (RBF, `probability=True`) | Slower; useful for benchmarking. |
-| `knn.py` | `KNeighborsClassifier` | Distance-weighted, k=25. |
-| `mlp.py` | `MLPClassifier` (64, 32) | Small 2-layer neural net. |
+| `logistic.py` | `LogisticRegression` (L2) | 标准 logistic 回归基线，`class_weight="balanced"` |
+| `lasso.py` | `LogisticRegression` (L1) | LASSO，自带特征筛选 |
+| `random_forest.py` | `RandomForestClassifier` | 500 棵树，`min_samples_leaf=5` |
+| `extra_trees.py` | `ExtraTreesClassifier` | 随机阈值树，方差更低 |
+| `gradient_boosting.py` | `HistGradientBoostingClassifier` | sklearn 原生直方图 GBT |
+| `lightgbm_model.py` | `LGBMClassifier` | LightGBM，叶子优先，通常表格数据最强 |
+| `xgboost_model.py` | `XGBClassifier` | XGBoost，`scale_pos_weight` 已按 15% 阳性率设好 |
+| `catboost_model.py` | `CatBoostClassifier` | CatBoost，`auto_class_weights="Balanced"`，静默模式 |
+| `svm.py` | `SVC`（RBF）+ `probability=True` | 较慢，主要作基准 |
+| `knn.py` | `KNeighborsClassifier` | 距离加权，k=25 |
+| `mlp.py` | `MLPClassifier` (64, 32) | 小型两层 MLP |
 
-> LightGBM / XGBoost / CatBoost are optional. If their packages aren't installed,
-> the registry simply skips them — everything else still works.
+> LightGBM / XGBoost / CatBoost 是**可选依赖**。`ml/models/__init__.py` 里是懒导入，缺哪个包就自动从 `MODEL_REGISTRY` 里跳过该模型，其余 8 个不受影响。
 
-All models share the **same preprocessor** built by `ml.data_utils.build_preprocessor`,
-so any score difference between them comes from the classifier alone.
+`MODEL_REGISTRY` key 列表：
 
----
+```
+"logistic_l2", "logistic_l1_lasso",
+"random_forest", "extra_trees", "gradient_boosting",
+"lightgbm", "xgboost", "catboost",
+"svm_rbf", "knn", "mlp"
+```
 
-## Quick start
+查看当前环境实际可用：
 
 ```python
-from ml import data_utils
 from ml.models import MODEL_REGISTRY
-# Or import a single model directly:
-#   from ml.models import random_forest
-
-# 1. Load the data (target = target_lesion_positive)
-df = data_utils.load_data()
-X, y, cols = data_utils.get_Xy(df)            # baseline predictors only
-# X, y, cols = data_utils.get_Xy(df, include_leaky=True)  # sensitivity analysis
-
-# 2. Build the shared preprocessor (imputation + scaling + one-hot)
-preprocessor = data_utils.build_preprocessor(df, cols)
-
-# 3. Build the model you want
-model = MODEL_REGISTRY["lightgbm"](preprocessor)
-# equivalent: from ml.models import lightgbm_model; model = lightgbm_model.build(preprocessor)
-
-# 4. Fit / predict like any sklearn pipeline
-model.fit(X, y)
-y_prob = model.predict_proba(X)[:, 1]
-y_pred = model.predict(X)
+print(sorted(MODEL_REGISTRY))
 ```
 
 ---
 
-## Cross-validated evaluation (recommended)
+## 添加一个新模型
 
-Training-set scores are over-optimistic; use CV for an honest number:
+1. 在本文件夹里新建 `my_model.py`：
 
-```python
-from sklearn.model_selection import StratifiedKFold, cross_val_predict
-from sklearn.metrics import roc_auc_score, average_precision_score
+   ```python
+   from sklearn.pipeline import Pipeline
+   from sklearn.ensemble import HistGradientBoostingClassifier
 
-cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-oof_prob = cross_val_predict(model, X, y, cv=cv, method="predict_proba")[:, 1]
+   def build(preprocessor):
+       clf = HistGradientBoostingClassifier(
+           max_iter=500,
+           learning_rate=0.05,
+           class_weight="balanced",
+           random_state=42,
+       )
+       return Pipeline([("preprocess", preprocessor), ("clf", clf)])
+   ```
 
-print("AUC :", roc_auc_score(y, oof_prob))
-print("AP  :", average_precision_score(y, oof_prob))
-```
+   注意点：
+   - 函数名必须是 `build`，接收 `preprocessor` 并返回 `Pipeline`。
+   - Pipeline 里两步必须分别叫 `"preprocess"` 和 `"clf"`，这样调参（`clf__xxx`）和 SHAP 才能自动找到分类器。
+   - 推荐处理类别不平衡：`class_weight="balanced"`（sklearn / LightGBM）、`scale_pos_weight=...`（XGBoost）、或 `auto_class_weights="Balanced"`（CatBoost）。
 
----
-
-## Save / load a trained model
-
-```python
-import joblib
-
-joblib.dump(model, "results/ml/lightgbm.joblib")
-
-model = joblib.load("results/ml/lightgbm.joblib")
-y_prob = model.predict_proba(new_X)[:, 1]
-```
-
-The whole `Pipeline` (preprocessor + classifier) is saved, so `new_X` only
-needs to be a raw `DataFrame` with the same columns as the original `X` —
-imputation, scaling and one-hot encoding are applied automatically.
-
----
-
-## Hyper-parameter tuning
-
-Every model is a normal sklearn estimator, so `GridSearchCV` / `RandomizedSearchCV`
-just works. Use the `clf__` prefix to reach the classifier inside the Pipeline:
-
-```python
-from sklearn.model_selection import GridSearchCV
-
-model = MODEL_REGISTRY["lightgbm"](preprocessor)
-grid = GridSearchCV(
-    model,
-    param_grid={
-        "clf__n_estimators": [300, 600, 1000],
-        "clf__learning_rate": [0.03, 0.05, 0.1],
-        "clf__num_leaves": [15, 31, 63],
-    },
-    scoring="roc_auc",
-    cv=5,
-    n_jobs=-1,
-)
-grid.fit(X, y)
-print(grid.best_params_, grid.best_score_)
-```
-
----
-
-## Adding a new model
-
-1. Create `ml/models/my_model.py` with a `build(preprocessor) -> Pipeline` function.
-2. Register it in `ml/models/__init__.py`:
+2. 在 `__init__.py` 里注册：
 
    ```python
    from . import my_model
    MODEL_REGISTRY["my_model"] = my_model.build
    ```
 
-That's it — the rest of the code can use it through `MODEL_REGISTRY["my_model"]`.
+   如果依赖一个可能没装的库，按现有 LightGBM / XGBoost / CatBoost 的样子用 try/except 包起来。
+
+3. 立刻可用：
+
+   ```bash
+   python3 -m ml.quickstart --model my_model
+   ```
+
+   ```python
+   from ml.models import MODEL_REGISTRY
+   model = MODEL_REGISTRY["my_model"](preprocessor)
+   ```
