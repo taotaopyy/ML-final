@@ -3,12 +3,20 @@ ml/quickstart.py — 端到端最小可运行示例
 
 在项目根目录 /workspace 下运行：
 
-    python3 -m ml.quickstart                 # 默认跑 lightgbm
-    python3 -m ml.quickstart random_forest   # 换任意一个模型名
-    python3 -m ml.quickstart all             # 11 个模型全部比较
+    # 模型选择
+    python3 -m ml.quickstart                              # 默认跑 lightgbm
+    python3 -m ml.quickstart --model random_forest        # 任意模型名
+    python3 -m ml.quickstart --model all                  # 11 个模型全部比较
+
+    # 自定义输入变量（可任选一种）
+    python3 -m ml.quickstart --columns age_years,stenosis_percent,baseline_ldl
+    python3 -m ml.quickstart --columns-file my_features.txt
+    python3 -m ml.quickstart --include-leaky              # 加入 postop_/followup_/diff_
+
+`--columns-file` 是一个每行一个列名的纯文本文件。
 
 流程：
-    1. 加载数据并定义 X / y
+    1. 加载数据并按用户给的列表（或默认）定义 X / y
     2. 构造共用预处理器
     3. 选择模型
     4. 5 折交叉验证评估（AUC / AP / Sens / Spec）
@@ -17,7 +25,7 @@ ml/quickstart.py — 端到端最小可运行示例
 
 from __future__ import annotations
 
-import sys
+import argparse
 import warnings
 from pathlib import Path
 
@@ -59,14 +67,59 @@ def evaluate(name: str, model, X, y, cv) -> dict:
     }
 
 
+def parse_args() -> argparse.Namespace:
+    p = argparse.ArgumentParser()
+    p.add_argument(
+        "--model", default="lightgbm",
+        help="model name in MODEL_REGISTRY, or 'all' to benchmark every model.",
+    )
+    grp = p.add_mutually_exclusive_group()
+    grp.add_argument(
+        "--columns", default=None,
+        help="comma-separated list of column names to use as predictors.",
+    )
+    grp.add_argument(
+        "--columns-file", default=None,
+        help="path to a text file with one predictor column name per line "
+             "(blank lines and '#' comments are ignored).",
+    )
+    p.add_argument(
+        "--include-leaky", action="store_true",
+        help="include postop_/followup_/diff_ variables (only used when "
+             "--columns and --columns-file are not given).",
+    )
+    return p.parse_args()
+
+
+def load_columns_arg(args: argparse.Namespace) -> list[str] | None:
+    if args.columns:
+        return [c.strip() for c in args.columns.split(",") if c.strip()]
+    if args.columns_file:
+        text = Path(args.columns_file).read_text()
+        out = []
+        for line in text.splitlines():
+            line = line.split("#", 1)[0].strip()
+            if line:
+                out.append(line)
+        return out
+    return None
+
+
 def main() -> None:
-    target = sys.argv[1] if len(sys.argv) > 1 else "lightgbm"
+    args = parse_args()
+    target = args.model
 
     # 1. 加载数据 + 定义 X / y
     df = data_utils.load_data()
-    X, y, cols = data_utils.get_Xy(df)              # 主分析：剔除事后变量
-    print(f"data: {df.shape[0]} rows | predictors: {len(cols)} "
-          f"| events: {int(y.sum())}/{len(y)} ({y.mean():.1%})")
+    user_cols = load_columns_arg(args)
+    if user_cols is not None:
+        X, y, cols = data_utils.get_Xy(df, columns=user_cols)
+        print(f"data: {df.shape[0]} rows | custom predictors: {len(cols)} "
+              f"| events: {int(y.sum())}/{len(y)} ({y.mean():.1%})")
+    else:
+        X, y, cols = data_utils.get_Xy(df, include_leaky=args.include_leaky)
+        print(f"data: {df.shape[0]} rows | predictors: {len(cols)} "
+              f"| events: {int(y.sum())}/{len(y)} ({y.mean():.1%})")
 
     # 2. 共用预处理器
     preprocessor = data_utils.build_preprocessor(df, cols)

@@ -112,10 +112,79 @@ def build_preprocessor(
 
 
 def get_Xy(
-    df: pd.DataFrame, include_leaky: bool = False
+    df: pd.DataFrame,
+    *,
+    columns: list[str] | None = None,
+    include_leaky: bool = False,
 ) -> tuple[pd.DataFrame, pd.Series, list[str]]:
-    """Convenience: return (X, y, predictor_columns)."""
-    cols = get_predictor_columns(df, include_leaky=include_leaky)
+    """Return (X, y, predictor_columns).
+
+    Parameters
+    ----------
+    df :
+        DataFrame from `load_data()`.
+    columns :
+        Explicit list of column names to use as predictors. If provided, this
+        overrides the default selection (any names not present in `df`, the
+        outcome column, or `uid` are dropped, and a warning is raised if
+        anything was filtered out).
+    include_leaky :
+        When `columns is None`, whether to keep `postop_* / followup_* / diff_*`
+        variables. Ignored when `columns` is given (you fully control the set).
+    """
+    if columns is None:
+        cols = get_predictor_columns(df, include_leaky=include_leaky)
+    else:
+        # Validate user-provided list.
+        requested = list(dict.fromkeys(columns))  # dedupe, keep order
+        missing = [c for c in requested if c not in df.columns]
+        if missing:
+            raise KeyError(
+                f"{len(missing)} requested column(s) not in df: {missing[:10]}"
+                + (" ..." if len(missing) > 10 else "")
+            )
+        bad = [c for c in requested if c == OUTCOME or c in ID_COLS]
+        cols = [c for c in requested if c not in bad]
+        if bad:
+            import warnings
+
+            warnings.warn(
+                f"Dropped {len(bad)} column(s) from your list because they are "
+                f"the outcome or an id: {bad}",
+                stacklevel=2,
+            )
+
     X = df[cols].copy()
     y = df[OUTCOME].astype(int)
     return X, y, cols
+
+
+def find_columns(
+    df: pd.DataFrame,
+    *,
+    prefix: str | tuple[str, ...] | None = None,
+    contains: str | None = None,
+    regex: str | None = None,
+    exclude_leaky: bool = True,
+) -> list[str]:
+    """Helper to discover predictor columns by name pattern.
+
+    Examples
+    --------
+    >>> find_columns(df, prefix="baseline_")
+    >>> find_columns(df, contains="plaque")
+    >>> find_columns(df, regex=r"^(history_|baseline_).*")
+    """
+    cols = [c for c in df.columns if c != OUTCOME and c not in ID_COLS]
+    if exclude_leaky:
+        cols = [c for c in cols if not c.startswith(LEAKY_PREFIXES)]
+    if prefix is not None:
+        cols = [c for c in cols if c.startswith(prefix)]
+    if contains is not None:
+        cols = [c for c in cols if contains in c]
+    if regex is not None:
+        import re
+
+        pat = re.compile(regex)
+        cols = [c for c in cols if pat.search(c)]
+    return cols
