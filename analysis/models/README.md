@@ -9,10 +9,17 @@ of the form `preprocessor -> classifier`.
 | `logistic.py` | `LogisticRegression` (L2) | Standard logistic regression baseline. |
 | `lasso.py` | `LogisticRegression` (L1) | LASSO — built-in feature selection. |
 | `random_forest.py` | `RandomForestClassifier` | 500 trees, balanced class weights. |
-| `gradient_boosting.py` | `HistGradientBoostingClassifier` | Fast GBT, usually strongest tabular baseline. |
+| `extra_trees.py` | `ExtraTreesClassifier` | Random-threshold trees; lower variance than RF. |
+| `gradient_boosting.py` | `HistGradientBoostingClassifier` | sklearn-native histogram GBT. |
+| `lightgbm_model.py` | `LGBMClassifier` (LightGBM) | Fast leaf-wise GBT; usually strong on tabular data. |
+| `xgboost_model.py` | `XGBClassifier` (XGBoost) | `scale_pos_weight` set for the ~15% event rate. |
+| `catboost_model.py` | `CatBoostClassifier` (CatBoost) | `auto_class_weights="Balanced"`, quiet mode. |
 | `svm.py` | `SVC` (RBF, `probability=True`) | Slower; useful for benchmarking. |
 | `knn.py` | `KNeighborsClassifier` | Distance-weighted, k=25. |
 | `mlp.py` | `MLPClassifier` (64, 32) | Small 2-layer neural net. |
+
+> LightGBM / XGBoost / CatBoost are optional. If their packages aren't installed,
+> the registry simply skips them — everything else still works.
 
 All models share the **same preprocessor** built by `analysis.data_utils.build_preprocessor`,
 so any score difference between them comes from the classifier alone.
