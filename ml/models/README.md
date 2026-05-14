@@ -1,8 +1,12 @@
-# Models
+# `ml/models/`
 
-Each file in this folder defines **one** machine-learning model and exposes a
-single `build(preprocessor)` function that returns a scikit-learn `Pipeline`
-of the form `preprocessor -> classifier`.
+Every ML model used in this project lives in its own file here.
+Each module exposes a single `build(preprocessor)` function that returns a
+scikit-learn `Pipeline` of the form `preprocessor -> classifier`.
+
+This folder is **independent** of `analysis/logistic_regression.py` — that
+script is the statistical univariate → multivariable Logit pipeline and does
+not share any code with the ML models.
 
 | File | Classifier | Notes |
 |---|---|---|
@@ -21,7 +25,7 @@ of the form `preprocessor -> classifier`.
 > LightGBM / XGBoost / CatBoost are optional. If their packages aren't installed,
 > the registry simply skips them — everything else still works.
 
-All models share the **same preprocessor** built by `analysis.data_utils.build_preprocessor`,
+All models share the **same preprocessor** built by `ml.data_utils.build_preprocessor`,
 so any score difference between them comes from the classifier alone.
 
 ---
@@ -29,10 +33,10 @@ so any score difference between them comes from the classifier alone.
 ## Quick start
 
 ```python
-from analysis import data_utils
-from analysis.models import MODEL_REGISTRY
+from ml import data_utils
+from ml.models import MODEL_REGISTRY
 # Or import a single model directly:
-#   from analysis.models import random_forest
+#   from ml.models import random_forest
 
 # 1. Load the data (target = target_lesion_positive)
 df = data_utils.load_data()
@@ -43,8 +47,8 @@ X, y, cols = data_utils.get_Xy(df)            # baseline predictors only
 preprocessor = data_utils.build_preprocessor(df, cols)
 
 # 3. Build the model you want
-model = MODEL_REGISTRY["random_forest"](preprocessor)
-# equivalent: model = random_forest.build(preprocessor)
+model = MODEL_REGISTRY["lightgbm"](preprocessor)
+# equivalent: from ml.models import lightgbm_model; model = lightgbm_model.build(preprocessor)
 
 # 4. Fit / predict like any sklearn pipeline
 model.fit(X, y)
@@ -56,7 +60,7 @@ y_pred = model.predict(X)
 
 ## Cross-validated evaluation (recommended)
 
-The numbers above are training-set scores; for an honest estimate use CV:
+Training-set scores are over-optimistic; use CV for an honest number:
 
 ```python
 from sklearn.model_selection import StratifiedKFold, cross_val_predict
@@ -76,11 +80,9 @@ print("AP  :", average_precision_score(y, oof_prob))
 ```python
 import joblib
 
-# After fitting
-joblib.dump(model, "results/ml/random_forest.joblib")
+joblib.dump(model, "results/ml/lightgbm.joblib")
 
-# Later, in another script
-model = joblib.load("results/ml/random_forest.joblib")
+model = joblib.load("results/ml/lightgbm.joblib")
 y_prob = model.predict_proba(new_X)[:, 1]
 ```
 
@@ -98,12 +100,13 @@ just works. Use the `clf__` prefix to reach the classifier inside the Pipeline:
 ```python
 from sklearn.model_selection import GridSearchCV
 
-model = MODEL_REGISTRY["random_forest"](preprocessor)
+model = MODEL_REGISTRY["lightgbm"](preprocessor)
 grid = GridSearchCV(
     model,
     param_grid={
-        "clf__n_estimators": [300, 500, 800],
-        "clf__min_samples_leaf": [1, 5, 10],
+        "clf__n_estimators": [300, 600, 1000],
+        "clf__learning_rate": [0.03, 0.05, 0.1],
+        "clf__num_leaves": [15, 31, 63],
     },
     scoring="roc_auc",
     cv=5,
@@ -117,8 +120,8 @@ print(grid.best_params_, grid.best_score_)
 
 ## Adding a new model
 
-1. Create `analysis/models/my_model.py` with a `build(preprocessor) -> Pipeline` function.
-2. Register it in `analysis/models/__init__.py`:
+1. Create `ml/models/my_model.py` with a `build(preprocessor) -> Pipeline` function.
+2. Register it in `ml/models/__init__.py`:
 
    ```python
    from . import my_model
