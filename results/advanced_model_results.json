@@ -1,0 +1,32 @@
+{
+  "baseline": {
+    "models": {
+      "lgbm_smote": 0.6553,
+      "et_smote": 0.6466,
+      "catboost": 0.6462,
+      "lgbm_no_smote": 0.6419,
+      "xgb_smote": 0.6382,
+      "gbt": 0.6381,
+      "hgbt_smote": 0.637,
+      "rf_smote": 0.6368,
+      "lr_poly2": 0.6
+    },
+    "ensemble_auc": 0.6646,
+    "best_auc": 0.6646
+  },
+  "all_variables": {
+    "models": {
+      "gbt": 0.6569,
+      "hgbt_smote": 0.6496,
+      "et_smote": 0.6465,
+      "lgbm_smote": 0.6396,
+      "xgb_smote": 0.6394,
+      "lgbm_no_smote": 0.6391,
+      "rf_smote": 0.6278,
+      "catboost": 0.6252,
+      "lr_poly2": 0.5955
+    },
+    "ensemble_auc": 0.6717,
+    "best_auc": 0.6717
+  }
+}
