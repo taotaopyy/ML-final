@@ -1,0 +1,52 @@
+{
+  "baseline": {
+    "individual": {
+      "rf2": 0.6539,
+      "rf1": 0.6498,
+      "xgb1": 0.6497,
+      "et": 0.6472,
+      "gbt1": 0.6455,
+      "lr": 0.6445,
+      "lgbm1": 0.6418,
+      "hgbt2": 0.6388,
+      "xgb2": 0.6365,
+      "lgbm2": 0.6329,
+      "cb1": 0.629,
+      "gbt2": 0.6275,
+      "hgbt1": 0.6231,
+      "cb2": 0.6213
+    },
+    "weighted_ensemble_auc": 0.659,
+    "meta_learner_aucs": {
+      "lr_meta": 0.6425,
+      "lr_meta_l1": 0.6436,
+      "lgbm_meta": 0.6405
+    },
+    "best_auc": 0.659
+  },
+  "all_variables": {
+    "individual": {
+      "rf1": 0.6573,
+      "rf2": 0.6564,
+      "xgb1": 0.6538,
+      "lgbm1": 0.6516,
+      "gbt1": 0.6489,
+      "et": 0.6471,
+      "xgb2": 0.6468,
+      "cb1": 0.6452,
+      "hgbt2": 0.6444,
+      "gbt2": 0.6394,
+      "lgbm2": 0.6391,
+      "lr": 0.6347,
+      "hgbt1": 0.6339,
+      "cb2": 0.6292
+    },
+    "weighted_ensemble_auc": 0.664,
+    "meta_learner_aucs": {
+      "lr_meta": 0.6379,
+      "lr_meta_l1": 0.6419,
+      "lgbm_meta": 0.6137
+    },
+    "best_auc": 0.664
+  }
+}

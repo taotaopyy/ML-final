@@ -5,3 +5,5 @@ scikit-learn
 lightgbm
 xgboost
 catboost
+optuna
+imbalanced-learn
